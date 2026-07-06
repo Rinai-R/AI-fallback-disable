@@ -2,63 +2,57 @@
 
 > [中文说明](README.zh-CN.md)
 
-`ai-fallback-disable` is a Codex skill for auditing and hardening AI-generated code that looks locally robust but hides real failures through unsafe fallback values, swallowed errors, config defaults, secret fallbacks, ambiguous empty returns, or optional chaining that weakens domain contracts.
+Codex skill for reviewing AI-generated fallback code.
 
-Core principle:
+The narrow target is code that looks defensive but hides the thing that should have failed: bad config, missing secrets, swallowed dependency errors, broken auth/tenant context, or ambiguous empty returns.
 
-> Do not make code "safe" by hiding failures.
+## What It Checks
 
-Reliable code should validate inputs and configuration at boundaries, keep core logic contract-driven, and ensure every fallback has explicit product or operations semantics.
+- Unsafe fallback values.
+- Swallowed errors.
+- Scattered config reads.
+- Secret defaults or secret normalization.
+- `null`, empty array, empty object, or `Optional.empty()` used for multiple meanings.
+- Optional chaining that hides a required domain invariant.
 
-## When To Use
+The main question is always:
 
-Use this skill when:
+> Is this a real business outcome, or did the code disguise a failure?
 
-- AI-generated code returns fallback values, empty arrays, empty objects, or `null` to avoid visible failure.
-- `try/catch` swallows unknown errors or turns dependency failures into success-like results.
-- `process.env.X || default` or `Number(value) || default` conflates missing, invalid, and valid falsy values.
-- Secrets such as `JWT_SECRET`, API keys, tokens, or signing keys have defaults or are silently trimmed.
-- Required context such as `user?.id`, `tenant?.id`, or `permission?.role` is hidden behind optional chaining.
-- A vague "make this robust" request needs to become explicit failure semantics, tests, and verifier checks.
+## What It Is Not
 
-## When Not To Use
+This is not a grep-based scanner. It also is not a general style review skill.
 
-This is not a generic code review checklist or a broad release-governance skill.
-
-Do not use it to:
-
-- Review ordinary style issues.
-- Mechanically delete every fallback.
-- Turn every business-level absence into an exception.
-- Default to generating grep scripts or lint rules.
-- Replace existing project security, release, or architecture standards.
+Text search can help find smoke, but the skill is about judgment: boundary, contract, failure type, caller expectation, and observability.
 
 ## Usage
 
-In a Codex environment with skills enabled, invoke it explicitly:
-
 ```text
-Use $ai-fallback-disable to review this AI-generated config loader for unsafe fallback and unclear failure semantics.
+Use $ai-fallback-disable to review this config loader. Focus on unsafe defaults, secrets, and failure semantics.
 ```
 
-Or:
-
 ```text
-Use $ai-fallback-disable to harden this API handler. Focus on swallowed errors, ambiguous empty returns, and tenant/auth contract violations.
+Use $ai-fallback-disable to review this handler. Focus on swallowed errors and ambiguous empty returns.
 ```
 
-## Workflow
+## Examples
 
-The skill guides the agent to:
+The `examples/` folder contains short review cases:
 
-1. Identify the relevant boundary: config, request input, external API, file, database/cache/queue response, identity/tenant/permission context.
-2. State the core contract that should hold after boundary validation.
-3. Classify suspicious fallback, default, catch, optional chain, or null/empty return.
-4. Decide the correct behavior: fail startup, validation error, typed business result, propagated system error, or explicit degraded mode.
-5. Make the smallest safe change without breaking valid business-level absence handling.
-6. Add focused failure-semantics tests.
+- `env-config.md`
+- `swallowed-db-error.md`
+- `optional-chaining-tenant-context.md`
+- `typed-business-absence.md`
+- `dependency-degradation-policy.md`
 
-## Repository Layout
+Each example has:
+
+- bad AI code,
+- why it hides failure,
+- better semantics,
+- review questions.
+
+## Layout
 
 ```text
 .
@@ -67,14 +61,9 @@ The skill guides the agent to:
 ├── README.zh-CN.md
 ├── agents/
 │   └── openai.yaml
+├── examples/
 └── references/
     └── release-checklist.md
 ```
 
-- `SKILL.md`: Core skill instructions.
-- `agents/openai.yaml`: Display metadata and default prompt.
-- `references/release-checklist.md`: Use only when the change touches production release readiness, secrets, auth, external input, deployment, CI, monitoring, rollback, or related operational concerns.
-
-## Design Notes
-
-This skill intentionally avoids making grep/scripts the default move. Automation is useful only for repeated, low-false-positive, stable, high-risk patterns. For normal review, first understand the boundary, contract, and failure semantics, then decide whether a lint rule, script, or verifier gate is justified.
+`references/release-checklist.md` is only for changes that touch release readiness: secrets, auth, external input, deployment, CI, monitoring, rollback, migrations, queues, caches, or external contracts.

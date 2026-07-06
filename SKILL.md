@@ -27,6 +27,14 @@ Work in this order:
 6. Add focused tests for the failure semantics changed by the fix.
 7. Use `references/release-checklist.md` only when the change touches production release paths, secrets, auth, external input, deployment, CI, or operational readiness.
 
+For similar concrete cases, read only the matching example in `examples/`. Examples are judgment references, not copy-paste templates:
+
+- `examples/env-config.md` for environment variables, defaults, secrets, and startup validation.
+- `examples/swallowed-db-error.md` for database or dependency errors hidden as empty results.
+- `examples/optional-chaining-tenant-context.md` for auth, tenant, or permission context hidden by optional chaining.
+- `examples/typed-business-absence.md` for legitimate not-found or empty-result semantics.
+- `examples/dependency-degradation-policy.md` for explicit degraded mode versus accidental fallback.
+
 ## Boundary Rules
 
 Validate and normalize only at untrusted boundaries:
