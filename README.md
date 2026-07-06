@@ -2,55 +2,49 @@
 
 > [中文说明](README.zh-CN.md)
 
-Codex skill for reviewing AI-generated fallback code.
+Codex skill for reviewing AI-generated environment/config loading code.
 
-The narrow target is code that looks defensive but hides the thing that should have failed: bad config, missing secrets, swallowed dependency errors, broken auth/tenant context, or ambiguous empty returns.
+It focuses on one problem: AI often adds fallback values to config code without knowing whether the value is optional, required, sensitive, or safe to default.
 
-## What It Checks
+The rule is simple:
 
-- Unsafe fallback values.
-- Swallowed errors.
-- Scattered config reads.
-- Secret defaults or secret normalization.
-- `null`, empty array, empty object, or `Optional.empty()` used for multiple meanings.
-- Optional chaining that hides a required domain invariant.
+> Meaningless fallback should not exist in code.
 
-The main question is always:
+## Scope
 
-> Is this a real business outcome, or did the code disguise a failure?
+This repo is about config loading:
 
-## What It Is Not
+- scattered `process.env` reads,
+- `process.env.X || default`,
+- unsafe `trim()`,
+- secret defaults,
+- loose number/boolean parsing,
+- startup validation,
+- typed config objects.
 
-This is not a grep-based scanner. It also is not a general style review skill.
+It is not a general backend error-handling skill.
 
-Text search can help find smoke, but the skill is about judgment: boundary, contract, failure type, caller expectation, and observability.
+## Examples
+
+The `examples/` folder covers the main cases:
+
+- `bad-env-loader.md`
+- `meaningless-fallback.md`
+- `secret-trim.md`
+- `default-policy.md`
+- `zod-env-schema.md`
+
+Each example explains the bad code, what it hides, and the better config semantics.
 
 ## Usage
 
 ```text
-Use $ai-fallback-disable to review this config loader. Focus on unsafe defaults, secrets, and failure semantics.
+Use $ai-fallback-disable to review this config loader. Focus on meaningless fallback, unsafe defaults, and secret handling.
 ```
 
 ```text
-Use $ai-fallback-disable to review this handler. Focus on swallowed errors and ambiguous empty returns.
+Use $ai-fallback-disable to write a startup config module. Required config must fail fast; secrets must not default or auto-trim.
 ```
-
-## Examples
-
-The `examples/` folder contains short review cases:
-
-- `env-config.md`
-- `swallowed-db-error.md`
-- `optional-chaining-tenant-context.md`
-- `typed-business-absence.md`
-- `dependency-degradation-policy.md`
-
-Each example has:
-
-- bad AI code,
-- why it hides failure,
-- better semantics,
-- review questions.
 
 ## Layout
 
@@ -61,9 +55,5 @@ Each example has:
 ├── README.zh-CN.md
 ├── agents/
 │   └── openai.yaml
-├── examples/
-└── references/
-    └── release-checklist.md
+└── examples/
 ```
-
-`references/release-checklist.md` is only for changes that touch release readiness: secrets, auth, external input, deployment, CI, monitoring, rollback, migrations, queues, caches, or external contracts.

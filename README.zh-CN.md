@@ -2,55 +2,49 @@
 
 > [English README](README.md)
 
-这是一个用来审 AI 生成 fallback 代码的 Codex skill。
+这是一个审 AI 生成环境变量/配置加载代码的 Codex skill。
 
-它处理的不是普通代码风格，而是那种“看起来很稳，其实把错误藏起来了”的代码：配置错了没炸、secret 缺了还跑、数据库挂了返回空数组、租户上下文没了还继续查、多个错误都用 `null` 表示。
+它只聚焦一个问题：AI 经常在配置代码里乱加 fallback，但它并不知道这个值是可选、必填、敏感，还是可以安全默认。
 
-## 它看什么
+规则很简单：
 
-- 不安全的 fallback。
-- 被吞掉的错误。
-- 散落的配置读取。
-- secret 默认值，或者对 secret 静默清洗。
-- `null`、空数组、空对象、`Optional.empty()` 被拿来表达多种含义。
-- optional chaining 把本该存在的领域约束藏掉。
+> 无意义的 fallback 不应该存在于代码里。
 
-核心问题就一个：
+## 范围
 
-> 这是正常业务结果，还是代码把失败伪装成了结果？
+这个仓库只管配置加载：
 
-## 它不是什么
+- 散落的 `process.env` 读取。
+- `process.env.X || default`。
+- 不该有的 `trim()`。
+- secret 默认值。
+- 数字/布尔值的宽松解析。
+- 启动期校验。
+- 类型明确的 config 对象。
 
-它不是 grep 扫描器，也不是通用代码风格审查。
+它不是通用后端错误处理规范。
 
-文本搜索只能当辅助雷达。真正要判断的是边界、契约、失败类型、调用方预期和可观测性。
+## 例子
+
+`examples/` 里是几个主要场景：
+
+- `bad-env-loader.md`
+- `meaningless-fallback.md`
+- `secret-trim.md`
+- `default-policy.md`
+- `zod-env-schema.md`
+
+每个例子都说明坏代码藏住了什么，以及更合理的配置语义是什么。
 
 ## 用法
 
 ```text
-Use $ai-fallback-disable to review this config loader. Focus on unsafe defaults, secrets, and failure semantics.
+Use $ai-fallback-disable to review this config loader. Focus on meaningless fallback, unsafe defaults, and secret handling.
 ```
 
 ```text
-Use $ai-fallback-disable to review this handler. Focus on swallowed errors and ambiguous empty returns.
+Use $ai-fallback-disable to write a startup config module. Required config must fail fast; secrets must not default or auto-trim.
 ```
-
-## 例子
-
-`examples/` 里放了几个短案例：
-
-- `env-config.md`
-- `swallowed-db-error.md`
-- `optional-chaining-tenant-context.md`
-- `typed-business-absence.md`
-- `dependency-degradation-policy.md`
-
-每个例子都按这个结构写：
-
-- 坏的 AI 代码。
-- 它为什么隐藏失败。
-- 更好的失败语义。
-- 审查时该问什么。
 
 ## 目录
 
@@ -61,9 +55,5 @@ Use $ai-fallback-disable to review this handler. Focus on swallowed errors and a
 ├── README.zh-CN.md
 ├── agents/
 │   └── openai.yaml
-├── examples/
-└── references/
-    └── release-checklist.md
+└── examples/
 ```
-
-`references/release-checklist.md` 只在变更影响发布准备时使用，比如 secret、鉴权、外部输入、部署、CI、监控、回滚、迁移、队列、缓存或外部 contract。
