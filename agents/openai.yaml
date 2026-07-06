@@ -1,4 +1,4 @@
 interface:
   display_name: "AI Fallback Disable"
-  short_description: "禁止 AI 配置代码里的无意义兜底"
-  default_prompt: "Use $ai-fallback-disable to review this config loader for meaningless fallback, unsafe defaults, secret handling, and startup validation."
+  short_description: "审计 AI 代码里的错误兜底语义"
+  default_prompt: "Use $ai-fallback-disable to review this change for meaningless fallback, wrong fallback, swallowed errors, ambiguous results, and unsafe config or security-boundary defaults."

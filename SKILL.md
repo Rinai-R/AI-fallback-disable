@@ -1,58 +1,104 @@
 ---
 name: ai-fallback-disable
-description: Audit, write, or refactor AI-generated environment/config loading code that uses meaningless fallback values, unsafe defaults, scattered process.env reads, secret defaults, silent trim, or loose parsing. Use when reviewing or building config modules, startup validation, env schemas, secret handling, or prompts that should prevent process.env.X || default and similar silent configuration recovery.
+description: Audit, write, or refactor AI-generated code that hides failures through meaningless fallback, wrong fallback, swallowed errors, ambiguous null/empty results, unsafe defaults, secret/config fallback, or optional chaining that weakens domain contracts. Use when reviewing fallback semantics in business logic, boundary input handling, dependency errors, config loading, auth/tenant/payment flows, or prompts that should prevent AI from inventing values just to keep code running.
 ---
 
 # AI Fallback Disable
 
 ## Purpose
 
-Use this skill when AI is writing or reviewing environment/config loading code.
+Use this skill when AI is writing or reviewing code that adds fallback behavior.
 
-The core problem is not that AI writes defensive code. The problem is that it often adds fallback values without knowing whether the value is optional, required, sensitive, low-risk, or production-critical.
+The core problem is not that AI writes defensive code. The problem is that it often invents a local fallback without understanding the boundary, the domain contract, or the failure semantics.
 
 Hard rule:
 
 > Meaningless fallback should not exist in code.
 
-A fallback is meaningful only when it has an explicit product, operational, or low-risk configuration policy. A fallback that merely keeps the program running while hiding a bad deployment is not robustness.
+A fallback is meaningful only when it has an explicit product, domain, or operational policy. A fallback that merely keeps the program running, returns a normal-looking value, or hides the real failure is not robustness.
 
-## What Counts As Meaningless Fallback
+## Fallback Taxonomy
 
-Treat these as suspect until proven otherwise:
+Classify fallback by the semantics it changes, not by syntax.
+
+| Type | Meaning | Typical Fix |
+| --- | --- | --- |
+| Meaningless fallback | Fills a value with no real policy, only to avoid `undefined`, `null`, or an exception | Remove it; model required or optional explicitly |
+| Wrong fallback | Produces a value with the wrong business meaning | Replace with validation, explicit error, or correct domain state |
+| Swallowed-error fallback | Converts system failure into a normal result | Propagate the error, return typed failure, or make degradation visible |
+| Semantic-confusion fallback | Uses one value for multiple states such as not found, forbidden, empty, and dependency failure | Split the states with typed results or explicit errors |
+| Contract-breaking fallback | Weakens a core invariant after the boundary should already be validated | Move validation to the boundary and keep core logic strict |
+| Unsafe boundary fallback | Defaults config, identity, tenant, auth, payment, storage, or secret values | Fail fast or require an explicit environment-gated policy |
+| Valid fallback | Expresses a real product or operational rule and does not hide errors | Keep it, name it, validate it, and test it |
+
+Good fallback is policy. Bad fallback is pretending an error is fixed by inventing a value.
+
+## Suspect Patterns
+
+Treat these as suspect until their semantics are proven:
 
 - `process.env.API_KEY?.trim() || ""`
 - `process.env.DATABASE_URL || "localhost"`
 - `process.env.JWT_SECRET || "secret"`
 - `Number(process.env.PORT) || 3000` without distinguishing missing, invalid, and out-of-range values
-- `process.env.X ?? default` on required config
-- `catch { return defaultConfig }` around config loading
-- empty string, local URL, mock token, weak secret, or test credential used to keep startup alive
+- `process.env.X ?? default` on required config or production boundary values
+- `user.role || "user"` when missing role means corrupt identity data
+- `product.price || 0` when missing price is not a free product
+- `tenantId || "default"` in multi-tenant code
+- `permissionError ? false : value` when dependency failure should not look like denial
+- `catch { return null }`, `catch { return [] }`, `catch { return {} }`, or `catch { return false }`
+- `optional?.chain ?? default` on values that should be guaranteed by a validated contract
+- empty string, zero, empty list, empty object, local URL, mock token, weak secret, or fake identity used to keep execution alive
 
-Remove meaningless fallback instead of documenting it. If the value is required, fail startup. If it is optional, model it as optional. If it has a real default, validate and name that policy.
+Do not keep meaningless fallback and document around it. If the value is required, fail at the boundary. If it is optional, model absence explicitly. If it has a real default, name the policy and validate it.
 
 ## Workflow
 
-1. Find where configuration is read.
-2. Move `process.env` reads into one config module if they are scattered.
-3. Classify each variable before writing parsing code.
-4. Decide whether the variable is required, optional, low-risk defaultable, dev-only defaultable, or forbidden to default.
-5. Parse and validate during startup.
-6. Export a typed config object.
-7. Ensure business code uses config, not `process.env`.
-8. Add tests for missing, blank, invalid, valid falsy, range, and secret-whitespace cases.
+1. Identify the boundary: request, config, file, queue message, database row, dependency response, cache, auth context, tenant context, or UI input.
+2. Identify the core contract after that boundary: which fields must exist, which states are allowed, and which failures must remain visible.
+3. Classify each fallback with the taxonomy above before editing code.
+4. Ask what exact failure the fallback hides: missing input, invalid input, not found, forbidden, dependency failure, corrupt data, deploy error, or optional absence.
+5. Decide the correct behavior: fail fast, validation error, typed business absence, propagated system error, explicit degraded mode, or validated default.
+6. Move validation and normalization to the boundary. Keep core logic on typed, already-validated values.
+7. Remove meaningless and wrong fallback. Preserve valid fallback only when it has a named policy.
+8. Add tests for the states that were previously collapsed.
 
 When a similar case appears, read only the relevant example:
 
-- `examples/bad-env-loader.md` for mixed `trim`, defaults, and loose parsing.
 - `examples/meaningless-fallback.md` for fallback values that should simply be removed.
+- `examples/wrong-fallback.md` for fallback that creates false business facts.
+- `examples/swallowed-error-fallback.md` for `catch` blocks that turn system errors into normal results.
+- `examples/semantic-confusion.md` for `null`, `[]`, `{}`, or `false` representing too many states.
+- `examples/valid-fallback.md` for defaults and degradation that are legitimate policy.
+- `examples/bad-env-loader.md` for config-specific `trim`, defaults, and loose parsing.
 - `examples/secret-trim.md` for secrets, tokens, private keys, and exact-match credentials.
 - `examples/default-policy.md` for deciding which config may have defaults.
 - `examples/zod-env-schema.md` for schema-based startup validation.
 
 Examples are judgment references, not templates to paste blindly.
 
-## Variable Classification
+## Classification Questions
+
+Ask these before accepting any fallback:
+
+- Is this value a business rule, product default, operational policy, or just an invented placeholder?
+- Does the fallback hide a deployment error, invalid input, corrupt data, dependency outage, permission problem, or security boundary failure?
+- Would the fallback result be treated later as a real fact: identity, role, price, balance, inventory, tenant, region, permission, or state?
+- Are `missing`, `blank`, `invalid`, `not found`, `empty`, `forbidden`, and `dependency failed` distinguishable?
+- Does the caller need to know that degradation happened?
+- Is the fallback observable through logs, metrics, status, or typed result when it handles a real outage?
+- Would continuing be safer than failing?
+
+## Business Logic Rules
+
+- Do not default identity, role, tenant, account, region, resource ID, permission, price, balance, inventory, billing, or state-machine values unless a domain policy explicitly says so.
+- Do not turn dependency failure into business absence. Database down is not user not found. Payment service timeout is not zero balance. Permission service failure is not ordinary forbidden.
+- Do not use `null`, `false`, `[]`, or `{}` for every unhappy path. Split business absence from system failure.
+- Do not keep optional chaining inside core logic to compensate for a boundary that should have validated the object.
+- Do not replace every fallback with `throw`. Business absence and product defaults are valid when they are explicit and tested.
+- Prefer typed results for expected business states: `found/not_found`, `allowed/denied`, `empty`, `disabled`, `degraded`, `dependency_error`.
+
+## Config And Secret Rules
 
 Classify config before implementation:
 
@@ -66,7 +112,7 @@ Classify config before implementation:
 | Dev-only convenience | local URLs, test credentials | Keep outside production config; make the environment condition explicit |
 | Optional config | optional integration ID, optional feature endpoint | Represent as optional; do not fake a value |
 
-## Trim Policy
+## Trim Policy For Config
 
 `trim()` is not good or bad by itself. It depends on the variable type.
 
@@ -93,15 +139,16 @@ Do not silently trim:
 
 If a secret must not contain leading or trailing whitespace, validate that condition and fail startup. Do not repair it silently.
 
-## Default Policy
+## Default Policy For Config And Inputs
 
 Use defaults only when all are true:
 
-- the default is low-risk,
-- it is valid in the target environment,
-- it does not hide deployment failure,
-- it is parsed and validated,
-- tests cover missing and invalid cases.
+- the default is a named product, domain, or operational policy,
+- it covers absence, not invalidity or system failure,
+- it is low-risk in the target environment,
+- it does not affect identity, permission, money, tenant, storage, or security boundaries,
+- it is parsed and validated when it comes from outside the process,
+- tests cover missing and invalid cases separately.
 
 Do not default:
 
@@ -110,6 +157,11 @@ Do not default:
 - database URLs,
 - production service endpoints,
 - tenant IDs,
+- user IDs,
+- roles and permissions,
+- prices, balances, inventory, and billing facts,
+- state-machine statuses,
+- payment, storage, and data-routing targets,
 - signing keys,
 - webhook secrets,
 - encryption material,
@@ -117,7 +169,7 @@ Do not default:
 
 Local development defaults are allowed only when explicitly scoped to development. They must not be reachable in production by accidentally omitting an environment variable.
 
-## Parse Rules
+## Parse And Boundary Rules
 
 - Do not use `X || default` for config parsing.
 - Distinguish `undefined`, blank string, malformed value, out-of-range value, and valid falsy value.
@@ -126,73 +178,76 @@ Local development defaults are allowed only when explicitly scoped to developmen
 - Parse URLs with URL tooling; validate protocol and host when relevant.
 - Parse enums with an allowlist.
 - Return a typed config object so the rest of the app does not carry `string | undefined`.
+- For user input, distinguish omitted optional fields from invalid supplied fields.
+- For dependency calls, distinguish cache miss from cache failure, not found from database failure, and disabled feature from failed integration.
 
 ## Required Review Output
 
-When reviewing config code, return findings in this shape:
+When reviewing fallback behavior, return findings in this shape:
 
 ```text
 - Severity: Critical | High | Medium | Low
-  Variable: ENV_NAME
-  Pattern: meaningless fallback | forbidden default | unsafe trim | loose parse | scattered env read
+  Location: file:line
+  Pattern: meaningless fallback | wrong fallback | swallowed error | semantic confusion | contract-breaking fallback | unsafe config fallback | unsafe trim | loose parse
   Current behavior: what the code currently does
-  Why it is wrong: what deployment/configuration error is hidden
-  Correct behavior: fail startup | explicit optional | validated default | dev-only default
+  Hidden failure: what failure or state is being disguised
+  Correct behavior: fail fast | validation error | typed business result | propagated system error | explicit degraded mode | validated default
   Fix: concrete code direction
-  Test: missing/blank/invalid/falsy/range/secret-whitespace case to add
+  Test: missing/blank/invalid/not-found/forbidden/dependency-failure/falsy/range/secret-whitespace case to add
 ```
 
 Prioritize:
 
-1. Secret defaults or silent secret normalization.
-2. Database URLs, production endpoints, tenant/security boundaries with defaults.
-3. Required config hidden behind empty string, localhost, mock values, or weak defaults.
-4. Loose number/boolean parsing.
-5. Scattered `process.env` reads outside the config module.
+1. Auth, tenant, permission, payment, billing, storage, data-routing, and secret fallback.
+2. System errors hidden behind `null`, `false`, `[]`, `{}`, zero, or success responses.
+3. Wrong business facts such as default role, price, balance, inventory, region, or state.
+4. Required config hidden behind empty string, localhost, mock values, weak defaults, or loose parsing.
+5. Valid fallback that lacks tests, observability, or a named policy.
 
 ## Do Not
 
 - Do not keep fallback just because it makes startup pass.
 - Do not replace required config with empty strings.
+- Do not invent business facts: role, tenant, price, balance, inventory, or state.
+- Do not collapse not found, forbidden, empty, disabled, invalid input, and dependency failure into one value.
+- Do not return normal empty data from an unexpected system failure unless it is an explicit degraded mode.
 - Do not default secrets to `"secret"`, `"changeme"`, `"dev-key"`, or test credentials.
 - Do not silently trim secrets.
 - Do not use local URLs as production fallback.
 - Do not parse booleans with truthiness.
 - Do not use `Number(value) || default` as validation.
-- Do not let business code read `process.env` directly.
-- Do not add a script or grep check as the main fix; first fix the config contract.
+- Do not let core business code keep validating raw boundary data.
+- Do not add a script or grep check as the main fix; first fix the contract and failure semantics.
 
 ## Prompt Template
 
-When asking an AI agent to write config loading code, use constraints like:
+When asking an AI agent to review fallback behavior, use constraints like:
 
 ```text
-Write a TypeScript config module.
+Review this change for unsafe fallback behavior.
 
 Requirements:
-- all environment variables are read only in this module
-- config is parsed and validated during startup
-- required config fails startup when missing, blank, or invalid
-- PORT and REQUEST_TIMEOUT_MS may have validated low-risk defaults
-- DATABASE_URL, JWT_SECRET, API_KEY, and SESSION_SECRET must not have defaults
-- normal URLs and enums may be trimmed before validation
-- secrets must not be automatically trimmed; leading/trailing whitespace is an error
-- do not use process.env.X || default
-- numeric config must be explicitly parsed and range-checked
-- export a typed config object
-- business code must not read process.env directly
+- classify each fallback as meaningful, meaningless, wrong, swallowed-error, semantic-confusion, contract-breaking, unsafe boundary, or valid
+- identify what failure each fallback hides
+- do not treat all fallback as bad; keep policy-backed defaults and explicit degradation
+- do not allow fallback for identity, tenant, permission, money, payment, storage, secret, or production routing values without a named policy
+- distinguish missing, invalid, not found, forbidden, empty, disabled, and dependency failure
+- recommend typed results, boundary validation, explicit errors, or observable degradation
+- include tests for the states that were previously collapsed
 ```
 
 ## Verifier Checklist
 
 Before accepting the change:
 
-- Are all `process.env` reads centralized?
-- Is each variable classified?
-- Are meaningless fallback values removed?
-- Are required variables fail-fast?
-- Are allowed defaults low-risk, explicit, parsed, and tested?
+- Is each fallback classified by semantics, not syntax?
+- Are meaningless fallback values removed instead of documented?
+- Are wrong business facts removed: fake role, tenant, price, balance, inventory, state, or endpoint?
+- Are system failures still visible to callers, logs, metrics, or typed results?
+- Are not found, forbidden, empty, disabled, invalid input, and dependency failure distinguishable?
+- Is boundary validation done before core logic?
+- Are allowed defaults explicit, low-risk, parsed, and tested?
 - Are secrets free of defaults and silent trim?
 - Are booleans, numbers, enums, and URLs explicitly parsed?
-- Does business code receive a typed config object?
-- Do tests cover missing, blank, invalid, valid falsy, range, and secret-whitespace cases?
+- Does business code receive typed inputs instead of raw boundary data?
+- Do tests cover missing, blank, invalid, valid falsy, not found, forbidden, dependency failure, range, and secret-whitespace cases?
