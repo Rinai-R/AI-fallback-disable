@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Fallback Disable"
+  short_description: "AI 代码防御、配置与发布审查守则"
+  default_prompt: "Use $ai-fallback-disable to review AI-generated code and turn vague robustness requests into explicit engineering guardrails."
