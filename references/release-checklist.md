@@ -1,6 +1,6 @@
 # AI Generated Code Release Checklist
 
-Use this reference when AI-assisted changes touch configuration, secrets, auth, external input, dependency behavior, deployment, CI, or production release paths.
+Use this reference only when an AI-assisted change touches production readiness: configuration, secrets, auth, external input, dependency behavior, deployment, CI, monitoring, rollback, migrations, queues, caches, or external contracts. Do not load it for ordinary local fallback cleanup unless the change has release impact.
 
 ## Configuration
 

@@ -1,37 +1,31 @@
 ---
 name: ai-fallback-disable
-description: Review, implement, or harden AI-assisted software development work with explicit engineering guardrails around defensive code, fallback behavior, configuration loading, secrets, error semantics, agent workflows, verifier checks, and release readiness. Use when AI-generated code adds broad try/catch, silent defaults, optional chaining noise, unsafe environment-variable handling, vague "make it robust" changes, or when turning repeated AI coding lessons into reusable scripts, lint rules, tests, or skills.
+description: Audit or harden AI-generated code that hides failures through unsafe fallback values, swallowed errors, scattered config reads, secret defaults, ambiguous null/empty returns, or optional chaining that weakens domain contracts. Use when reviewing AI-written code, removing silent recovery, centralizing config validation, or adding verifier checks for explicit failure semantics.
 ---
 
 # AI Fallback Disable
 
 ## Purpose
 
-Use this skill to keep AI-assisted development explicit, reviewable, and production-safe. The goal is not to ban defensive programming; the goal is to put defense at system boundaries, keep core logic contract-driven, and prevent AI-generated fallback code from hiding real failures.
+Use this skill to review or harden AI-assisted code that looks robust locally but weakens real failure semantics. The goal is not to ban defensive programming; the goal is to stop accidental silent recovery from hiding configuration errors, authorization gaps, dependency failures, malformed input, or broken domain contracts.
 
-This skill is based on three practical observations:
+Default rule:
 
-- AI often lacks full system context, so it adds `null` checks, `try/catch`, `trim()`, optional chaining, and fallback defaults to make local code appear safe.
-- The dangerous part is not defensive code itself; it is silent recovery from errors that should fail fast, alert, or be handled by a deliberate product policy.
-- Repeated lessons should move from prompt-only advice into scripts, lint checks, tests, verifier gates, and reusable skills.
+> Do not make code "safe" by hiding failures.
 
-## Default Rule
+Make failures explicit at boundaries, keep core logic contract-driven, and require every fallback to have a clear business or operations meaning.
 
-Do not make code "safe" by hiding failures.
+## Operating Model
 
-Make failures explicit at boundaries, keep core logic clear, and require every fallback to have a named business or operations policy.
+Work in this order:
 
-## Workflow
-
-1. Identify system boundaries.
-2. Identify core logic contracts.
-3. Search for AI defensive-code smells.
-4. Classify each fallback, default, optional chain, and catch block.
-5. Move parsing and validation into boundary modules.
-6. Remove silent fallback from trusted core logic unless explicitly justified.
-7. Add tests for missing, invalid, and valid falsy values.
-8. Run the verifier checklist.
-9. If the same issue appears repeatedly, add lint/script coverage or update this skill.
+1. Identify the relevant boundary: config, request input, external API, file, database/cache/queue response, identity/tenant/permission context, or other untrusted source.
+2. State the core contract that should hold after that boundary has been validated.
+3. Classify each suspicious fallback, default, catch block, optional chain, or null/empty return.
+4. Decide the correct behavior: fail startup, return validation error, return typed business absence, propagate system error, or use explicit degraded mode.
+5. Make the smallest change that restores explicit behavior without breaking valid business-level absence handling.
+6. Add focused tests for the failure semantics changed by the fix.
+7. Use `references/release-checklist.md` only when the change touches production release paths, secrets, auth, external input, deployment, CI, or operational readiness.
 
 ## Boundary Rules
 
@@ -49,16 +43,16 @@ After boundary validation, pass typed values into core logic. Avoid letting raw 
 
 ## Core Contract Rules
 
-- Keep core logic focused on the main domain path.
-- Treat violated invariants as bugs or contract failures, not as cases to smooth over with empty values.
-- Avoid repeated `if (!x)`, `?.`, and default objects for data that the boundary layer should guarantee.
+- Keep core logic focused on domain behavior, not speculative recovery.
+- Treat violated invariants as contract failures, not cases to smooth over with default objects.
+- Avoid repeated `if (!x)`, `?.`, and empty returns for data the boundary layer should guarantee.
 - Do not use broad `try/catch` around unrelated core operations.
-- Use typed/domain results for expected business absence, such as not found, feature disabled, validation failure, or optional capability unavailable.
-- Throw or propagate unexpected system failures with context.
+- Use typed/domain results for expected business absence: not found, disabled feature, optional capability unavailable, empty-but-valid result, or validation failure.
+- Throw or propagate unexpected system failures with enough context for callers and observability.
 
 ## Fallback Classification
 
-Classify every fallback before approving it.
+Classify every fallback before approving or removing it.
 
 | Category | Examples | Preferred handling |
 | --- | --- | --- |
@@ -67,12 +61,12 @@ Classify every fallback before approving it.
 | Expected business absence | User not found, optional profile missing | Return typed/domain result, not ambiguous empty values |
 | Broken config or deployment | Missing `DATABASE_URL`, `JWT_SECRET`, API key | Fail fast at startup |
 | Programmer error | Impossible state, missing required argument | Throw/assert; fix caller or contract |
-| Dependency/system failure | Database down, API timeout, queue failure | Propagate with context; retry/circuit-break only by policy |
+| Dependency/system failure | Database down, API timeout, queue failure | Propagate with context; retry/circuit-break only by explicit policy |
 | AI-generated convenience | `catch { return [] }`, `"secret"` default, local URL fallback | Remove or replace with explicit failure semantics |
 
 ## Unsafe Patterns
 
-Flag these unless a local contract clearly justifies them:
+Flag these unless the surrounding contract clearly justifies them:
 
 - `process.env.X || default` for config.
 - `process.env.X?.trim() || ""` for required values.
@@ -99,73 +93,61 @@ Flag these unless a local contract clearly justifies them:
 - For booleans: parse explicit allowed strings such as `true/false`, `1/0`, or `yes/no`; reject unknown values.
 - For URLs: parse with URL tooling and validate protocol, host, and required path semantics.
 
-## Agent Workflow
+## Required Review Output
 
-Use prompt, script, subagent, verifier, and skill at different layers:
+When reviewing code, lead with findings. For each finding, use this structure:
 
-| Situation | Best mechanism |
-| --- | --- |
-| Human judgment, architecture boundaries, error semantics | Prompt or skill instruction |
-| Repeated text patterns or mechanically detectable smells | Script or lint rule |
-| Large repo audit requiring multiple perspectives | Subagents |
-| Final quality gate after code changes | Verifier checklist |
-| Cross-project repeated workflow | Skill |
-| One local bug | Direct fix plus focused tests |
-
-### Prompt
-
-Use prompt guidance for rules that need judgment:
-
-- Define which layer is a boundary and which layer is trusted core logic.
-- Say which errors must fail fast and which outcomes are recoverable business states.
-- Require explicit fallback justification.
-- Require tests for failure semantics, not just "does not throw".
-
-### Script Or Lint
-
-Create deterministic checks when a bad pattern is searchable:
-
-```bash
-rg "process\\.env"
-rg "\\|\\|.*default|\\?\\?.*default"
-rg "catch\\s*\\{|catch\\s*\\("
-rg "return\\s+(null|undefined|\\[\\]|false)"
-rg "\\.trim\\(\\)"
-rg "Number\\(process\\.env|parseInt\\(process\\.env|parseFloat\\(process\\.env"
-rg "as any|unknown as"
+```text
+- Severity: Critical | High | Medium | Low
+  Location: file:line
+  Pattern: unsafe fallback | swallowed error | unsafe config | secret handling | contract pollution | ambiguous absence
+  Hidden failure: what failure is currently disguised or conflated
+  Correct behavior: fail startup | validation error | typed business result | propagated system error | explicit degraded mode
+  Fix: concrete replacement behavior or code direction
+  Test: missing/blank/invalid/falsy/dependency-failure case to add
 ```
 
-Turn repeated findings into named checks such as:
+Prioritize:
 
-- `lint:env-boundary` for scattered environment reads.
-- `lint:secret-defaults` for secret fallback and unsafe trim.
-- `lint:defensive-fallbacks` for empty catch and fallback returns.
-- `lint:unsafe-config-parse` for loose number, boolean, enum, and URL parsing.
+1. Security or credential fallback.
+2. Data loss, data corruption, tenant/auth boundary errors.
+3. Hidden deployment/configuration failures.
+4. Swallowed dependency/system failures.
+5. Ambiguous business absence or API semantics.
+6. Style-level defensive noise.
 
-### Subagents
+## Do Not
 
-Use subagents when the codebase is large or needs parallel review perspectives:
+- Do not replace every fallback with `throw`.
+- Do not remove valid business-level absence handling.
+- Do not normalize secrets, signatures, tokens, exact-match credentials, or idempotency keys.
+- Do not turn dependency outages into empty success results.
+- Do not add broad `try/catch` as a robustness fix.
+- Do not collapse unauthorized, forbidden, not found, validation error, and empty result into the same return value.
+- Do not add default production endpoints, local service URLs, mock credentials, or weak secrets.
+- Do not change public API semantics without identifying the caller impact.
+- Do not treat "tests pass" as proof that failure semantics are correct.
 
-- Env/config and startup boundaries.
-- Fallback, `try/catch`, and optional chaining.
-- Core logic contract pollution.
-- Tests that validate fallback instead of failure semantics.
-- Security, permission, and release risks.
+## Automation Guidance
 
-Ask each subagent to return findings with severity, file/line, hidden failure, production impact, suggested fix, and whether the issue can be scripted.
+Do not start by writing scripts or treating text search as the deliverable. First understand the boundary, contract, and intended failure semantics.
 
-### Verifier
+Only propose lint rules, scripts, or verifier checks when a problem is:
 
-Use a verifier after changes to answer: did this actually remove silent failure, or did it move the same ambiguity somewhere else?
+- repeated across multiple files or projects,
+- mechanically detectable with low false positives,
+- risky enough to justify a gate, and
+- stable enough that future agents should not rediscover it by judgment alone.
 
-The verifier should not keep rewriting. It should check and reject:
+Examples of rules that may become automation after repeated findings:
 
-- Scattered `process.env`.
-- `|| default` or `?? default` on required config.
-- Secret defaults or secret trim.
-- Catch blocks that swallow unknown failures.
-- Fallbacks without product semantics or observability.
-- Tests that only assert "does not throw".
+- environment variables are read outside the config module,
+- secrets or production endpoints have defaults,
+- required config uses fallback defaults,
+- catch blocks swallow unknown errors,
+- optional chaining hides required identity or tenant context.
+
+Keep automation as a follow-up hardening path, not the default answer to every review.
 
 ## Testing Requirements
 
@@ -193,38 +175,21 @@ does not read process.env outside config loader
 does not swallow unexpected calculation errors
 ```
 
-## Review Output
+## Verifier Checklist
 
-When reviewing code, lead with findings:
+Use this checklist after edits:
 
-```text
-- Severity: Critical | High | Medium | Low
-  Location: file:line
-  Problem: what failure is being hidden or conflated
-  Impact: what can go wrong in production
-  Fix: concrete replacement behavior or code direction
-  Automation: whether a lint/script/test should catch this next time
-```
-
-Prioritize:
-
-1. Security or credential fallback.
-2. Data loss, data corruption, tenant/auth boundary errors.
-3. Hidden deployment/configuration failures.
-4. Swallowed dependency/system failures.
-5. Ambiguous business absence or API semantics.
-6. Style-level defensive noise.
+- Does the boundary now parse and validate untrusted input before core logic receives it?
+- Are missing, blank, invalid, and valid falsy values distinct where they matter?
+- Are secrets free of defaults and silent normalization?
+- Does expected business absence use a typed/domain result instead of ambiguous empty values?
+- Are unexpected dependency or system failures propagated with context?
+- Does every remaining fallback have explicit product or operations semantics?
+- Can callers, logs, metrics, or tests observe degraded mode when it happens?
+- Do tests assert the intended failure behavior, not merely "does not throw"?
 
 ## Release Gate
 
-Before shipping AI-generated code, confirm:
+Use the release checklist only when the reviewed change affects production readiness, including secrets, auth, external input, deployment, CI, monitoring, rollback, migrations, queues, caches, or external contracts.
 
-- Boundaries are explicit and validated.
-- Core logic is not full of speculative fallback.
-- Failure modes are distinct: config error, validation error, auth error, dependency failure, not found, and programmer error.
-- Secrets and credentials never default, never leak, and are not silently normalized.
-- Fallbacks are observable and user/product semantics are clear.
-- Rollback, feature flags, migrations, queues, caches, and external contracts are considered for risky changes.
-- CI includes type checks, lint, unit tests, focused integration tests, and relevant security scans.
-
-For deeper launch checks, read `references/release-checklist.md`.
+For those cases, read `references/release-checklist.md` and apply only the sections relevant to the change.
