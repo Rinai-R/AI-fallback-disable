@@ -51,4 +51,4 @@ Unexpected database errors should not be returned as `not_found`.
 - How many states does this one fallback value represent?
 - Does the caller need different HTTP status codes, retries, logs, or messages?
 - Is empty result a valid business state or a hidden system failure?
-- Should this be a typed union, domain error, or explicit degraded result?
+- Does the existing contract call for a typed union or domain error? Use an explicit degraded result only when a pre-existing interface defines it; do not invent one during cleanup.

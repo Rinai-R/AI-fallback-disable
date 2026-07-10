@@ -31,13 +31,13 @@ const tenantId = requireTenantHeader(req);
 const stock = await requireInventory(itemId);
 ```
 
-If a default is a real product rule, name it:
+If an existing product contract or test already defines a default, preserve it:
 
 ```ts
 const sortOrder = query.sortOrder ?? "created_at_desc";
 ```
 
-`sortOrder` can be a product default. `price = 0` cannot be assumed without an explicit pricing rule.
+Here, assume the query contract explicitly defines `created_at_desc` for an omitted sort order. The expression itself does not prove that policy. `price = 0` cannot be assumed without an explicit pricing rule.
 
 ## Review Questions
 

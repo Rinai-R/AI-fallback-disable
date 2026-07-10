@@ -16,7 +16,7 @@ These fallbacks do not express a real policy. They only let code continue when t
 - `""` is not a usable API key.
 - `"localhost"` is not a safe production database URL.
 - `"secret"` is not a real signing secret.
-- `"Unknown"` may be fine for UI display, but meaningless if the name is used for contracts, audit logs, invoices, or identity.
+- `"Unknown"` is unsupported unless an existing UI policy defines it, and it is meaningless if the name is used for contracts, audit logs, invoices, or identity.
 
 ## Better Semantics
 
@@ -40,17 +40,18 @@ For business data, decide whether absence is allowed:
 const displayName = requireProfileDisplayName(user.profile);
 ```
 
-or keep it presentation-only:
+or keep a presentation-only default only when an existing UI requirement or snapshot/contract test defines that copy:
 
 ```ts
 const label = user.profile?.displayName ?? "Unnamed user";
 ```
 
-The difference matters. UI copy can have a display fallback; identity data should not be invented.
+The difference matters. Proven UI copy can have a display default; identity data should not be invented. Do not add `"Unnamed user"` just because it seems user-friendly.
 
 ## Review Questions
 
 - What does the fallback value mean?
+- What pre-existing requirement, contract, or test proves that meaning?
 - Would the app work correctly with that value?
 - Is this default valid in production?
 - Should this be optional, required, dev-only, or a typed business absence?

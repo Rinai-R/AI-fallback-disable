@@ -1,4 +1,4 @@
 interface:
   display_name: "AI Fallback Disable"
-  short_description: "审计 AI 代码里的错误兜底语义"
-  default_prompt: "Use $ai-fallback-disable to review this change for meaningless fallback, wrong fallback, swallowed errors, ambiguous results, and unsafe config or security-boundary defaults."
+  short_description: "优先删除无效 fallback，只保留有明确策略证据的兜底行为"
+  default_prompt: "Use $ai-fallback-disable to remove unsupported fallback first, preserve only evidence-backed existing fallback, add none by default, and report the fallback delta."

@@ -28,12 +28,13 @@ Read env once, classify each variable, parse by type, and export typed config.
 export const config = loadConfig(process.env);
 ```
 
-The loader should fail startup for required service config and secrets. Only low-risk values should have defaults, and even those defaults should go through parsing and validation.
+The loader should fail startup for required service config and secrets. A low-risk value may retain a default only when existing policy defines it; low risk alone does not authorize a new default. Parse and validate every retained default path.
 
 ## Review Questions
 
 - Which variables are required?
 - Which variables may safely default?
+- Which repository or user evidence proves each default is policy?
 - Which variables are secrets?
 - Which values are being silently repaired instead of rejected?
 - Does the rest of the app still read `process.env` directly?

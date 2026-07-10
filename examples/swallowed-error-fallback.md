@@ -66,7 +66,9 @@ try {
 
 ## Valid Degradation
 
-Some non-core features can degrade:
+Preserve degradation only when an existing product or operations policy says the feature may degrade, the result contract exposes that state, and callers already handle it. Do not introduce this pattern during cleanup merely because a feature appears non-core.
+
+Given that pre-existing evidence, a recommendation fallback can remain:
 
 ```ts
 try {
