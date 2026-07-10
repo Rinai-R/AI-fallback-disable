@@ -10,8 +10,6 @@ The operating rule is simple:
 
 > Delete first. Keep only evidence-backed fallback. Add none by default.
 
-The skill treats AI's extra defaults, guards, catches, retries, and compatibility paths as a response to missing context—not as proof that the system needs them. This follows the boundary-versus-core distinction described in [AI 为什么总喜欢写防御性代码？](https://www.nowcoder.com/discuss/886331075914371072?sourceSSR=dynamic): validate genuinely external input at its boundary, then keep core contracts strict and failure semantics visible.
-
 ## Removal-First Contract
 
 - Inventory existing fallback before editing.
